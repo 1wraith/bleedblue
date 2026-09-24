@@ -13,7 +13,6 @@ no build step, no internet.
 
 ## Table of contents
 
-- [Philosophy: passive by design](#philosophy-passive-by-design)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Hardware](#hardware)
@@ -27,30 +26,9 @@ no build step, no internet.
 - [Project layout](#project-layout)
 - [Extending: adding a source](#extending-adding-a-source)
 - [Known limitations & hardware ceilings](#known-limitations--hardware-ceilings)
-- [Roadmap](#roadmap)
 - [Legal & ethical use](#legal--ethical-use)
-- [License](#license)
 
 ---
-
-## Philosophy: passive by design
-
-BleedBlue is a **receiver**. Every capability in it listens; none of it transmits,
-injects, jams, or deauthenticates. This isn't only an ethical stance — it's an
-honest reflection of the hardware. The Ubertooth's CC2400 radio pushes roughly
-1 mW through a single, half-duplex antenna. It cannot meaningfully jam anything.
-What it *can* do is **detect** a jammer: a persistent, non-hopping carrier sitting
-on top of a band that should be hopping is exactly the anomaly BleedBlue's spectrum
-analyzer is built to flag.
-
-So the design goal is situational awareness, not intrusion:
-
-- **What is in the air around me right now?** — spectrum occupancy, live.
-- **What devices are advertising, and what are they?** — decoded BLE, vendor-resolved.
-- **Where was each observation made?** — every event geotagged at the moment it's emitted.
-- **Is something anomalous?** — noise-floor tracking and non-hopping-carrier detection.
-
-Everything below serves those questions and stops there.
 
 ## Features
 
@@ -337,23 +315,6 @@ Honesty about what this can't do is part of the design:
   and forgets it. There is no recording or replay (see the roadmap).
 - **No authentication yet.** Anyone on the Pi's network can reach the API and
   WebSocket. Don't expose it beyond a trusted local network until auth lands.
-
-## Roadmap
-
-In rough priority order:
-
-1. **Persistence & correlation (SQLite).** The biggest gap — turn the live monitor
-   into a *recorder* you can query and replay. Every event is already geotagged at
-   emit time specifically so this layer has something to write. This unlocks
-   "what did I see, when, and where?"
-2. **Single-radio mutual-exclusion guard** so spectrum and BLE can't be started
-   together on one Ubertooth, and **auto-restart** when a source dies.
-3. **Authentication** on the API and WebSocket — a shared token for the field unit.
-4. **Map view.** The geotagging pays off here: device positions and a track trail.
-   Truly offline on the Pi means bundling map tiles or a plain coordinate plot,
-   since mainstream map libraries fetch tiles from the internet.
-5. **pcap / Wireshark interop**, folded into the persistence work as capture-to-disk
-   plus replay rather than bolted on alone.
 
 ## Legal & ethical use
 
