@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BleedBlue</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#111827; --panel-2:#0d1424; --line:#1e2a44;
+    --line-strong:#2b3c60; --text:#c9d5ec; --muted:#67769a; --dim:#3f4d6e;
+    --signal:#38bdf8; --signal-dim:#1c5878; --live:#3ddc97; --sim:#f2a541; --alert:#ef5b5b;
+    --font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg); color:var(--text); font-family:var(--font); font-size:15px;
+    line-height:1.5; padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+  .wrap{max-width:1180px; margin:0 auto; padding:16px}
+
+  .bar{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+       padding:12px 4px 16px; border-bottom:1px solid var(--line)}
+  .brand{font-weight:600; font-size:19px; letter-spacing:.2px}
+  .brand b{color:var(--signal); font-weight:600}
+  .band{font-family:var(--mono); font-size:12px; color:var(--muted)}
+  .spacer{flex:1}
+  .mode{display:flex; align-items:center; gap:7px; font-size:13px; font-family:var(--mono);
+        padding:5px 10px; border:1px solid var(--line); border-radius:20px}
+  .mode .dot{width:8px; height:8px; border-radius:50%; background:var(--dim)}
+  .mode.live .dot{background:var(--live); box-shadow:0 0 8px var(--live)}
+  .mode.demo .dot{background:var(--sim); box-shadow:0 0 8px var(--sim)}
+  .mode.down .dot{background:var(--alert)}
+  .btn{font:inherit; font-size:13px; color:var(--text); background:var(--panel);
+       border:1px solid var(--line-strong); border-radius:7px; padding:6px 12px; cursor:pointer}
+  .btn:hover{border-color:var(--signal)}
+  .btn:focus-visible{outline:2px solid var(--signal); outline-offset:1px}
+
+  .controls{display:flex; gap:10px; flex-wrap:wrap; padding:16px 0}
+  .chip{display:flex; align-items:center; gap:10px; background:var(--panel);
+        border:1px solid var(--line); border-radius:9px; padding:8px 10px 8px 12px}
+  .chip .sdot{width:9px; height:9px; border-radius:50%; background:var(--dim); flex:none}
+  .chip.running .sdot{background:var(--live); box-shadow:0 0 7px var(--live)}
+  .chip.running.sim .sdot{background:var(--sim); box-shadow:0 0 7px var(--sim)}
+  .chip.off .sdot{background:var(--alert)}
+  .chip .meta{display:flex; flex-direction:column; line-height:1.25}
+  .chip .name{font-size:14px}
+  .chip .sub{font-size:11px; color:var(--muted); font-family:var(--mono)}
+  .chip .act{font:inherit; font-size:12px; background:transparent; color:var(--muted);
+             border:1px solid var(--line-strong); border-radius:6px; padding:4px 9px; cursor:pointer; margin-left:2px}
+  .chip .act:hover{color:var(--text); border-color:var(--signal)}
+  .chip.disabled .act{opacity:.4; cursor:not-allowed}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:11px; overflow:hidden; margin-bottom:16px}
+  .panel-h{display:flex; align-items:baseline; gap:10px; padding:11px 14px; border-bottom:1px solid var(--line)}
+  .panel-h h2{margin:0; font-size:14px; font-weight:600}
+  .panel-h .hint{font-size:11px; color:var(--muted); font-family:var(--mono)}
+  .panel-h .hint.alert{color:var(--alert); font-weight:600}
+  .panel-h .spacer{flex:1}
+  .panel-b{padding:14px}
+
+  #spectrum-trace{width:100%; height:96px; display:block; background:var(--panel-2);
+                  border-radius:6px 6px 0 0; border-bottom:1px solid var(--line)}
+  #spectrum{width:100%; height:150px; display:block; image-rendering:pixelated;
+            background:var(--panel-2); border-radius:0 0 6px 6px}
+  .axis{display:flex; justify-content:space-between; font-family:var(--mono);
+        font-size:11px; color:var(--muted); padding:6px 2px 0}
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--muted); padding:8px 2px 0}
+  .legend span{display:flex; align-items:center; gap:5px}
+  .legend i{width:14px; height:2px; display:inline-block}
+
+  .grid{display:grid; grid-template-columns:1fr 330px; gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th{text-align:left; font-weight:500; color:var(--muted); font-size:11px; padding:0 8px 8px; border-bottom:1px solid var(--line)}
+  td{padding:7px 8px; border-bottom:1px solid var(--panel-2); vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono)}
+  .tag{font-family:var(--mono); font-size:10px; padding:1px 6px; border-radius:4px; border:1px solid var(--line-strong); color:var(--muted); white-space:nowrap}
+  .tag.ble{color:var(--signal); border-color:#1c4b6b}
+  .tag.wifi_ap{color:#a78bfa; border-color:#3a2f6b}
+  .tag.wifi_client{color:#8b95c9; border-color:#33406b}
+  .tag.bt_classic{color:#f0abfc; border-color:#5b2f5b}
+  .vendor{color:var(--text)} .vendor.none{color:var(--dim)}
+  .detail{color:var(--muted); font-size:12px}
+  .detail b{color:var(--signal); font-weight:500}
+  .detail .bk{color:var(--sim)}
+  .sig{display:flex; align-items:center; gap:7px}
+  .sig .val{font-family:var(--mono); width:52px; color:var(--text)}
+  .sig .bar{flex:1; height:4px; background:var(--panel-2); border-radius:2px; overflow:hidden; min-width:30px}
+  .sig .bar i{display:block; height:100%; background:var(--signal)}
+  .empty{color:var(--dim); font-size:13px; padding:8px}
+
+  .read{display:grid; grid-template-columns:auto 1fr; gap:8px 14px; font-size:13px}
+  .read .k{color:var(--muted)} .read .v{font-family:var(--mono); text-align:right}
+
+  #log{list-style:none; margin:0; padding:0; max-height:220px; overflow-y:auto; font-family:var(--mono); font-size:12px}
+  #log li{padding:3px 4px; border-bottom:1px solid var(--panel-2); color:var(--muted)}
+  #log li b{color:var(--muted); font-weight:400; margin-right:6px}
+  #log li.error{color:var(--alert)} #log li.warn{color:var(--sim)}
+  #log li.alert{color:var(--alert); background:rgba(239,91,91,.08)} #log li.alert b{color:var(--alert)}
+  #log li.info b{color:var(--signal)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <div class="brand"><b>Bleed</b>Blue</div>
+    <div class="band">2402&ndash;2481 MHz</div>
+    <div class="spacer"></div>
+    <div class="mode down" id="mode"><span class="dot"></span><span id="mode-t">connecting</span></div>
+    <button class="btn" id="reconnect">Connect</button>
+    <button class="btn" id="demo">Demo mode</button>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="panel">
+    <div class="panel-h"><h2>Spectrum</h2><span class="spacer"></span><span class="hint" id="spec-hint">idle</span></div>
+    <div class="panel-b">
+      <canvas id="spectrum-trace" width="640" height="96"></canvas>
+      <canvas id="spectrum" width="640" height="150"></canvas>
+      <div class="axis"><span>2402</span><span>2426</span><span>2441</span><span>2462</span><span>2481</span></div>
+      <div class="legend">
+        <span><i style="background:var(--signal)"></i>live sweep</span>
+        <span><i style="background:var(--signal-dim)"></i>max hold</span>
+        <span><i style="background:var(--sim);height:0;border-top:2px dashed var(--sim)"></i>noise floor</span>
+        <span><i style="background:var(--dim)"></i>Wi-Fi 1/6/11 &middot; BLE 37/38/39</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-h"><h2>Devices seen</h2><span class="spacer"></span><span class="hint" id="dev-count">0</span></div>
+      <div class="panel-b" style="padding-top:6px; overflow-x:auto">
+        <table id="dev-table">
+          <thead><tr><th>source</th><th>identifier</th><th>vendor</th><th>signal</th><th>detail</th><th>count</th><th>last</th></tr></thead>
+          <tbody id="dev-body"></tbody>
+        </table>
+        <div class="empty" id="dev-empty">No devices yet &mdash; start a radio above.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-h"><h2>Position</h2><span class="spacer"></span><span class="hint" id="gps-hint">no fix</span></div>
+        <div class="panel-b">
+          <div class="read">
+            <span class="k">latitude</span><span class="v" id="g-lat">&mdash;</span>
+            <span class="k">longitude</span><span class="v" id="g-lon">&mdash;</span>
+            <span class="k">altitude</span><span class="v" id="g-alt">&mdash;</span>
+            <span class="k">speed</span><span class="v" id="g-spd">&mdash;</span>
+            <span class="k">satellites</span><span class="v" id="g-sats">&mdash;</span>
+            <span class="k">HDOP</span><span class="v" id="g-hdop">&mdash;</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>Log</h2></div>
+        <div class="panel-b" style="padding:6px 10px"><ul id="log"></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- backend location -------------------------------------------------- */
+const HOST = location.port === "8000" ? location.host : (location.hostname || "localhost") + ":8000";
+const WS_URL = "ws://" + HOST + "/ws";
+const API = "http://" + HOST + "/api";
+
+/* ---- shared state ------------------------------------------------------ */
+const state = { mode:"down", sources:{}, devices:new Map(), devDirty:false };
+const DEFAULT_SOURCES = [
+  { key:"spectrum", title:"Spectrum" }, { key:"ble", title:"BLE" },
+  { key:"gps", title:"GPS" }, { key:"kismet", title:"Kismet" },
+];
+
+/* ---- panels ------------------------------------------------------------ */
+const spectrum = makeSpectrum(document.getElementById("spectrum"), document.getElementById("spectrum-trace"));
+const log = makeLog(document.getElementById("log"));
+
+/* ---- single event dispatcher (shared by WS and demo) ------------------- */
+function handleEvent(e){
+  switch(e.type){
+    case "snapshot": applySnapshot(e); break;
+    case "spectrum": spectrum.push(e); break;
+    case "ble":      upsertDevice("ble", e.addr, e); break;
+    case "device":   upsertDevice(e.source || "kismet", e.mac, e); break;
+    case "gps":      updateGps(e); break;
+    case "state":    setSourceState(e.source, e.running, e.sim); break;
+    case "log":      log.push(e); if(e.level==="alert" && e.source==="spectrum") flagInterference(e.msg); break;
+  }
+}
+
+/* ---- snapshot + control chips ------------------------------------------ */
+function applySnapshot(snap){
+  (snap.sources || DEFAULT_SOURCES).forEach(s=>{ state.sources[s.key] = Object.assign(state.sources[s.key]||{}, s); });
+  renderControls();
+}
+function setSourceState(key, running, sim){
+  const s = state.sources[key]; if(!s) return;
+  s.running = running; s.sim = sim;
+  if(key==="spectrum" && running) spectrum.resetPeak();
+  renderControls();
+}
+function renderControls(){
+  const host = document.getElementById("controls"); host.innerHTML = "";
+  DEFAULT_SOURCES.forEach(def=>{
+    const s = state.sources[def.key] || {}, running = !!s.running;
+    const unavailable = state.mode==="live" && s.available===false && !running;
+    const sub = running ? (s.sim ? "simulated" : "live") : unavailable ? "unavailable" : "stopped";
+    const chip = document.createElement("div");
+    chip.className = "chip" + (running?" running":"") + (running&&s.sim?" sim":"") + (unavailable?" off disabled":"");
+    chip.innerHTML = '<span class="sdot"></span><span class="meta"><span class="name">'+def.title+
+      '</span><span class="sub">'+sub+'</span></span><button class="act">'+(running?"Stop":"Start")+'</button>';
+    const btn = chip.querySelector(".act");
+    if(unavailable) btn.disabled = true; else btn.onclick = ()=> toggleSource(def.key, !running);
+    host.appendChild(chip);
+  });
+}
+async function toggleSource(key, start){
+  if(state.mode==="live"){
+    try{
+      const r = await fetch(API+"/sources/"+key+"/"+(start?"start":"stop"), {method:"POST"});
+      if(!r.ok){ const b = await r.json().catch(()=>({})); log.push({source:key,level:"warn",msg:(b.detail&&b.detail.reason)||"start refused"}); }
+    }catch(err){ log.push({source:key,level:"error",msg:String(err)}); }
+  } else { start ? demoStart(key) : demoStop(key); }
+}
+
+/* ---- devices table (enriched) ------------------------------------------ */
+function upsertDevice(source, id, e){
+  if(!id) return;
+  const k = source+":"+id, now = Date.now();
+  let d = state.devices.get(k);
+  if(!d){ d = {source, id, count:0}; state.devices.set(k, d); }
+  d.count++; d.last = now;
+  ["rssi","vendor","addr_type","name","company","beacon","services","tx_power","ssid","assoc","devtype"]
+    .forEach(f=>{ if(e[f]!=null) d[f]=e[f]; });
+  state.devDirty = true;
+}
+function vendorCell(d){
+  if(d.vendor) return '<span class="vendor">'+esc(d.vendor)+'</span>';
+  if(d.addr_type && d.addr_type.indexOf("random")===0) return '<span class="vendor none">random addr</span>';
+  return '<span class="vendor none">&mdash;</span>';
+}
+function detailCell(d){
+  const p = [];
+  if(d.name) p.push('<b>'+esc(d.name)+'</b>');
+  if(d.ssid) p.push('<b>'+esc(d.ssid)+'</b>');
+  if(d.source!=="ble" && d.devtype) p.push(esc(d.devtype.replace("_"," ")));
+  if(d.beacon){ const b=d.beacon;
+    p.push('<span class="bk">'+esc(b.type)+(b.frame?" "+esc(b.frame):"")+(b.major!=null?" "+b.major+"/"+b.minor:"")+'</span>'); }
+  if(d.company) p.push("mfr "+esc(d.company));
+  if(d.services && d.services.length) p.push("svc "+esc(d.services.join(",")));
+  if(d.tx_power!=null) p.push(d.tx_power+" dBm tx");
+  if(d.assoc) p.push("&rarr; "+esc(d.assoc.slice(0,8)));
+  return p.join(" &middot; ") || '<span style="color:var(--dim)">&mdash;</span>';
+}
+function renderDevices(){
+  if(!state.devDirty) return; state.devDirty = false;
+  const rows = [...state.devices.values()].sort((a,b)=> b.last - a.last).slice(0,40);
+  document.getElementById("dev-empty").style.display = rows.length ? "none":"block";
+  document.getElementById("dev-count").textContent = state.devices.size + " unique";
+  const now = Date.now();
+  document.getElementById("dev-body").innerHTML = rows.map(d=>{
+    const pct = d.rssi==null ? 0 : Math.max(0, Math.min(100, (d.rssi+100)/70*100));
+    return '<tr>'+
+      '<td><span class="tag '+esc(d.source==="kismet"?(d.devtype||"kismet"):d.source)+'">'+esc(d.source==="ble"?"ble":(d.devtype||d.source))+'</span></td>'+
+      '<td class="mono">'+esc(d.id)+'</td>'+
+      '<td>'+vendorCell(d)+'</td>'+
+      '<td><div class="sig"><span class="val">'+(d.rssi==null?'&mdash;':d.rssi+' dBm')+'</span>'+
+          '<span class="bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></div></td>'+
+      '<td class="detail">'+detailCell(d)+'</td>'+
+      '<td class="mono">'+d.count+'</td>'+
+      '<td class="mono" style="color:var(--muted)">'+Math.round((now-d.last)/1000)+'s</td></tr>';
+  }).join("");
+}
+setInterval(renderDevices, 400);
+
+/* ---- gps + quality ----------------------------------------------------- */
+function updateGps(e){
+  if(e.kind==="quality"){
+    if(e.sats_used!=null) document.getElementById("g-sats").textContent = e.sats_used+" / "+(e.sats_seen!=null?e.sats_seen:"?");
+    if(e.hdop!=null) document.getElementById("g-hdop").textContent = e.hdop;
+    return;
+  }
+  if(e.lat!=null) document.getElementById("g-lat").textContent = e.lat.toFixed(6);
+  if(e.lon!=null) document.getElementById("g-lon").textContent = e.lon.toFixed(6);
+  if(e.alt!=null) document.getElementById("g-alt").textContent = e.alt.toFixed(1)+" m";
+  if(e.speed!=null) document.getElementById("g-spd").textContent = e.speed.toFixed(2)+" m/s";
+  document.getElementById("gps-hint").textContent = e.sim ? "simulated fix" : "live fix";
+}
+
+/* ---- spectrum: waterfall + analyzer trace ------------------------------ */
+function makeSpectrum(cv, tr){
+  const ctx = cv.getContext("2d"), tx = tr.getContext("2d");
+  const FMIN=2402, FMAX=2481, SPAN=FMAX-FMIN, W=cv.width, H=cv.height;
+  const RMIN=-100, RMAX=-20;
+  let maxHold = new Array(SPAN+1).fill(-120);
+  const WIFI=[[2412,"1"],[2437,"6"],[2462,"11"]], BLE=[[2402,"37"],[2426,"38"],[2480,"39"]];
+  ctx.fillStyle = "#0d1424"; ctx.fillRect(0,0,W,H);
+  function heat(r){ const t=Math.min(1,Math.max(0,(r+100)/70)); return "hsl("+(220-210*t)+","+(60+30*t)+"%,"+(10+46*t)+"%)"; }
+  function fx(f){ return (f-FMIN)/SPAN*(tr.width-1); }
+  function fy(r){ return tr.height - (Math.max(RMIN,Math.min(RMAX,r))-RMIN)/(RMAX-RMIN)*tr.height; }
+  function drawTrace(points, noise){
+    const w=tr.width, h=tr.height;
+    tx.clearRect(0,0,w,h);
+    tx.strokeStyle="#16223c"; tx.lineWidth=1;
+    WIFI.concat(BLE).forEach(([f])=>{ tx.beginPath(); tx.moveTo(fx(f),0); tx.lineTo(fx(f),h); tx.stroke(); });
+    tx.fillStyle="#3f4d6e"; tx.font="9px "+getComputedStyle(document.body).fontFamily;
+    WIFI.forEach(([f,l])=>tx.fillText(l, fx(f)+2, 10)); BLE.forEach(([f,l])=>tx.fillText(l, fx(f)+2, h-3));
+    if(noise!=null){ tx.strokeStyle="#f2a541"; tx.setLineDash([4,3]); tx.beginPath();
+      tx.moveTo(0,fy(noise)); tx.lineTo(w,fy(noise)); tx.stroke(); tx.setLineDash([]); }
+    line(maxHold.map((r,i)=>[FMIN+i,r]), "#1c5878");     // max hold
+    line(points, "#38bdf8");                              // current
+  }
+  function line(points, color){
+    tx.strokeStyle=color; tx.lineWidth=1.4; tx.beginPath();
+    points.forEach((p,i)=>{ const x=fx(p[0]), y=fy(p[1]); i?tx.lineTo(x,y):tx.moveTo(x,y); });
+    tx.stroke();
+  }
+  return {
+    resetPeak(){ maxHold = new Array(SPAN+1).fill(-120); },
+    push(e){
+      ctx.drawImage(cv, 0, -1);
+      ctx.fillStyle = "#0d1424"; ctx.fillRect(0,H-1,W,1);
+      const cw = Math.max(1, Math.ceil(W/SPAN));
+      for(const [f,r] of e.points){
+        const x = Math.round((f-FMIN)/SPAN*(W-1));
+        ctx.fillStyle = heat(r); ctx.fillRect(x, H-1, cw, 1);
+        const bi=f-FMIN; if(bi>=0 && bi<=SPAN && r>maxHold[bi]) maxHold[bi]=r;
+      }
+      drawTrace(e.points, e.noise);
+      if(document.getElementById("spec-hint").textContent==="idle")
+        document.getElementById("spec-hint").textContent = e.sim ? "simulated" : "live";
+    }
+  };
+}
+let interfTimer=null;
+function flagInterference(msg){
+  const el=document.getElementById("spec-hint");
+  el.className="hint alert"; el.textContent="\u26a0 "+ (msg.match(/near \d+ MHz/)||["interference"])[0];
+  clearTimeout(interfTimer);
+  interfTimer=setTimeout(()=>{ el.className="hint"; el.textContent = state.mode==="demo"?"simulated":"live"; }, 6000);
+}
+
+/* ---- log --------------------------------------------------------------- */
+function makeLog(ul){
+  return { push(e){
+    const li = document.createElement("li"); li.className = e.level||"info";
+    li.innerHTML = '<b>'+new Date().toLocaleTimeString()+' '+esc(e.source||"sys")+'</b>'+esc(e.msg||"");
+    ul.insertBefore(li, ul.firstChild);
+    while(ul.children.length>80) ul.removeChild(ul.lastChild);
+  }};
+}
+
+/* ---- connection: try live, fall back to demo --------------------------- */
+let ws=null, demoTimers={};
+function setMode(m){
+  state.mode = m;
+  const el=document.getElementById("mode"), t=document.getElementById("mode-t");
+  el.className = "mode "+m; t.textContent = m==="live" ? "live" : m==="demo" ? "demo" : "offline";
+}
+function connect(){
+  stopDemo(); setMode("down"); document.getElementById("mode-t").textContent="connecting";
+  try{ ws = new WebSocket(WS_URL); }catch(e){ return startDemo(); }
+  const fail = setTimeout(()=>{ if(!ws || ws.readyState!==1){ try{ws.close();}catch(e){} startDemo(); } }, 2500);
+  ws.onopen = ()=>{ clearTimeout(fail); setMode("live"); log.push({source:"sys",level:"info",msg:"connected to backend"}); };
+  ws.onmessage = ev=>{ try{ handleEvent(JSON.parse(ev.data)); }catch(e){} };
+  ws.onclose = ()=>{ clearTimeout(fail); if(state.mode==="live"){ setMode("down"); document.getElementById("mode-t").textContent="disconnected"; } };
+  ws.onerror = ()=>{ clearTimeout(fail); if(state.mode!=="live") startDemo(); };
+}
+
+/* ---- demo simulator: same enriched event shapes, no backend ------------ */
+function pick(a){ return a[(Math.random()*a.length)|0]; }
+const BLE_TEMPLATES = [
+  {addr:"24:0a:c4:11:22:33", vendor:"Espressif", addr_type:"public", name:"ESP-Sensor", services:["0x180d"], tx_power:-12},
+  {addr:"b8:27:eb:44:55:66", vendor:"Raspberry Pi", addr_type:"public", name:"pi-beacon", services:["0x180f"]},
+  {addr:"ac:bc:32:aa:bb:cc", vendor:"Apple", addr_type:"public", company:"Apple", beacon:{type:"iBeacon",major:1,minor:42}},
+  {addr:"c0:06:c3:00:00:01", vendor:"TP-Link", addr_type:"public", beacon:{type:"Eddystone",frame:"URL"}},
+  {addr:"d3:ab:cd:ef:11:22", vendor:null, addr_type:"random-static", name:"Tile"},
+  {addr:"94:eb:2c:07:08:09", vendor:"Google", addr_type:"public", name:"Nest-Cam"},
+];
+const KIS_APS = [
+  {mac:"50:c7:bf:aa:00:01", devtype:"wifi_ap", ssid:"HOME-WIFI", vendor:"TP-Link"},
+  {mac:"fc:ec:da:bb:00:02", devtype:"wifi_ap", ssid:"coffeeshop", vendor:"Ubiquiti"},
+  {mac:"00:09:5b:cc:00:03", devtype:"wifi_ap", ssid:"eduroam", vendor:"Netgear"},
+];
+const KIS_CLIENTS = [
+  {mac:"ac:bc:32:10:20:30", vendor:"Apple"}, {mac:"94:eb:2c:40:50:60", vendor:"Google"},
+  {mac:"24:0a:c4:70:80:90", vendor:"Espressif"}, {mac:"f8:a4:5f:a0:b0:c0", vendor:"Xiaomi"},
+];
+function startDemo(){
+  if(ws){ try{ws.close();}catch(e){} ws=null; }
+  setMode("demo");
+  DEFAULT_SOURCES.forEach(s=> state.sources[s.key]={ key:s.key, available:false, running:false, sim:true });
+  renderControls();
+  log.push({source:"sys",level:"warn",msg:"backend unreachable \u2014 running demo simulator"});
+  ["spectrum","ble","gps"].forEach(demoStart);   // leave kismet for the user to start
+}
+function stopDemo(){ Object.keys(demoTimers).forEach(demoStop); }
+function demoStart(key){
+  if(demoTimers[key]) return;
+  handleEvent({type:"state", source:key, running:true, sim:true});
+  const humps={2412:18,2437:22,2462:16}; let tick=0, carrierUntil=0, lastAlert=0;
+  const gen = {
+    spectrum(){
+      tick++;
+      if(tick%230===0) carrierUntil=tick+90;
+      const live={}; for(const cf in humps) live[cf]=humps[cf]+((Math.random()*20)|0)-8;
+      const pts=[]; let sum=[];
+      for(let f=2402; f<2481; f++){ let b=-95+((Math.random()*6)|0)-3;
+        for(const cf in live){ const d=Math.abs(f-cf); if(d<8) b+=Math.round(Math.max(0,live[cf])*(1-d/8)); }
+        if(tick<carrierUntil && f===2455) b=-38+((Math.random()*4)|0)-2;
+        pts.push([f,b]); sum.push(b); }
+      sum.sort((a,b)=>a-b); const noise=sum[(sum.length/5)|0];
+      handleEvent({type:"spectrum", source:"spectrum", sim:true, points:pts, noise:noise});
+      if(tick<carrierUntil && Date.now()-lastAlert>8000){ lastAlert=Date.now();
+        handleEvent({type:"log", source:"spectrum", level:"alert",
+          msg:"possible non-hopping carrier near 2455 MHz \u2014 interference/jammer signature"}); }
+    },
+    ble(){ const t=pick(BLE_TEMPLATES);
+      handleEvent(Object.assign({type:"ble", source:"ble", sim:true, rssi:-(45+((Math.random()*50)|0))}, t)); },
+    gps(){ demoState.lat+=(Math.random()-.5)*2e-4; demoState.lon+=(Math.random()-.5)*2e-4;
+      handleEvent({type:"gps", source:"gps", sim:true, kind:"fix", lat:demoState.lat, lon:demoState.lon, alt:40+Math.random()*20, speed:Math.random()*1.5});
+      if(tick2()%5===0) handleEvent({type:"gps", source:"gps", sim:true, kind:"quality", sats_used:6+((Math.random()*6)|0), sats_seen:12+((Math.random()*5)|0), hdop:+(0.7+Math.random()).toFixed(1)}); },
+    kismet(){ if(Math.random()<0.4){ const ap=pick(KIS_APS);
+        handleEvent({type:"device", source:"kismet", sim:true, mac:ap.mac, devtype:"wifi_ap", ssid:ap.ssid, vendor:ap.vendor, rssi:-(40+((Math.random()*35)|0))}); }
+      else { const c=pick(KIS_CLIENTS), ap=pick(KIS_APS);
+        handleEvent({type:"device", source:"kismet", sim:true, mac:c.mac, devtype:"wifi_client", vendor:c.vendor, assoc:ap.mac, ssid:ap.ssid, rssi:-(50+((Math.random()*40)|0))}); } },
+  }[key];
+  const period = key==="spectrum"?120 : key==="gps"?1000 : 500;
+  demoTimers[key] = setInterval(gen, period);
+}
+const demoState={lat:51.283, lon:-0.234}; let _t=0; function tick2(){ return ++_t; }
+function demoStop(key){
+  if(demoTimers[key]){ clearInterval(demoTimers[key]); delete demoTimers[key]; }
+  handleEvent({type:"state", source:key, running:false, sim:true});
+}
+
+/* ---- helpers + wiring -------------------------------------------------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+document.getElementById("reconnect").onclick = connect;
+document.getElementById("demo").onclick = startDemo;
+renderControls(); connect();
+</script>
+</body>
+</html>
