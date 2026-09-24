@@ -58,7 +58,6 @@ _COMPANY: Dict[int, str] = {
     0x0499: "Ruuvi", 0x000F: "Broadcom", 0x0001: "Nokia",
 }
 
-
 def load_oui_file(path: str) -> int:
     """Merge an IEEE oui.txt or Wireshark manuf file. Returns entries added."""
     added = 0
@@ -78,7 +77,6 @@ def load_oui_file(path: str) -> int:
     except OSError:
         pass
     return added
-
 
 def classify_addr(mac: str) -> str:
     """Best-effort BLE address type from the bytes alone.
@@ -107,15 +105,12 @@ def enrich_mac(mac: str) -> Dict:
     vendor = lookup_vendor(mac) if atype == "public" else None
     return {"vendor": vendor, "addr_type": atype}
 
-
 # --- BLE advertising-data parser -------------------------------------------
 def _s8(b: int) -> int:
     return b - 256 if b > 127 else b
 
-
 def _le_uuid(b: bytes) -> str:
     return "0x" + b[::-1].hex()
-
 
 def parse_ad(data: bytes) -> Dict:
     out: Dict = {"name": None, "services": [], "tx_power": None, "flags": None,
