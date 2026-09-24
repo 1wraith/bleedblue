@@ -9,11 +9,6 @@ enumerates Wi-Fi devices through Kismet, geotags everything against a GPS fix, a
 serves it all to a browser console you reach over the Pi's own hotspot — no cloud,
 no build step, no internet.
 
-> **Live console (demo mode, no hardware needed):**
-> https://claude.ai/artifact/WqV9cSXaYx5ahmU4FbBwxp
-> Open it and it runs the built-in simulator so you can see the full interface —
-> waterfall, decoded devices, interference alerts — before you own a single radio.
-
 ---
 
 ## Table of contents
