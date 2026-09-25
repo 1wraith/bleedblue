@@ -327,8 +327,3 @@ personal data those signals reveal — vary widely by jurisdiction and can be st
 You are responsible for operating this tool lawfully where you are. Use it on
 spectrum and devices you own or are authorised to assess, respect others' privacy,
 and understand your local regulations before you record anything.
-
-## License
-
-No license file is included yet — **add one before distributing.** For tooling like
-this, MIT (permissive) and GPL-3.0 (copyleft) are the usual choices.
